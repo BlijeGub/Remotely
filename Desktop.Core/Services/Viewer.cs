@@ -11,8 +11,9 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using System.Text.Json;
 using System.Threading;
+using System.Diagnostics;
 
 namespace Remotely.Desktop.Core.Services
 {
@@ -86,11 +87,7 @@ namespace Remotely.Desktop.Core.Services
         public void Dispose()
         {
             DisconnectRequested = true;
-            Disposer.TryDisposeAll(new IDisposable[]
-            {
-                RtcSession,
-                Capturer
-            });
+            Disposer.TryDisposeAll(RtcSession, Capturer);
             GC.SuppressFinalize(this);
         }
 
@@ -235,6 +232,7 @@ namespace Remotely.Desktop.Core.Services
             {
                 var dto = new CaptureFrameDto()
                 {
+                    Id = screenFrame.Id,
                     Left = left,
                     Top = top,
                     Width = width,
@@ -243,12 +241,13 @@ namespace Remotely.Desktop.Core.Services
                     ImageBytes = screenFrame.EncodedImageBytes.Skip(i).Take(50_000).ToArray()
                 };
 
-                await SendToViewer(async () => await RtcSession.SendDto(dto),
-                    async () => await CasterSocket.SendDtoToViewer(dto, ViewerConnectionID));
+                await SendToViewer(() => RtcSession.SendDto(dto),
+                    () => CasterSocket.SendDtoToViewer(dto, ViewerConnectionID));
             }
 
             var endOfFrameDto = new CaptureFrameDto()
             {
+                Id = screenFrame.Id,
                 Left = left,
                 Top = top,
                 Width = width,
@@ -257,8 +256,8 @@ namespace Remotely.Desktop.Core.Services
             };
 
             await SendToViewer(
-                async () => await RtcSession.SendDto(endOfFrameDto),
-                async () => await CasterSocket.SendDtoToViewer(endOfFrameDto, ViewerConnectionID));
+                () => RtcSession.SendDto(endOfFrameDto),
+                () => CasterSocket.SendDtoToViewer(endOfFrameDto, ViewerConnectionID));
 
             sw.Stop();
 

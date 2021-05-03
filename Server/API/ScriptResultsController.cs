@@ -60,18 +60,29 @@ namespace Remotely.Server.API
                 {
                     await _dataService.AddAlert(result.DeviceID,
                         result.OrganizationID,
-                        $"Error while running script {savedScript.Name}.");
+                        $"Alert triggered while running script {savedScript.Name}.",
+                        string.Join("\n", result.ErrorOutput));
                 }
 
                 if (savedScript.SendEmailOnError)
                 {
                     var device = _dataService.GetDevice(result.DeviceID);
 
+                    if (!string.IsNullOrWhiteSpace(device.DeviceGroupID))
+                    {
+                        device.DeviceGroup = await _dataService.GetDeviceGroup(device.DeviceGroupID);
+                    }
+
                     await _emailSender.SendEmailAsync(savedScript.SendErrorEmailTo,
-                        "Script Run Error",
-                        $"An error occurred while running script {savedScript.Name} on device {device.DeviceName}. <br /><br />" +
-                            $"Error Output: <br /><br /> " +
-                            $"{string.Join("<br /><br />", result.ErrorOutput)}");
+                        "Script Run Alert",
+                        $"An alert was triggered while running script {savedScript.Name} on device {device.DeviceName}. <br /><br />" +
+                            $"Device ID: {device.ID} <br /> " +
+                            $"Device Name: {device.DeviceName} <br /> " +
+                            $"Device Alias: {device.Alias} <br /> " +
+                            $"Device Group (if any): {device.DeviceGroup?.Name} <br /> " +
+
+                            $"Error Output: <br /> <br /> " +
+                            $"{string.Join("<br /> <br />", result.ErrorOutput)}");
                 }
             }
 

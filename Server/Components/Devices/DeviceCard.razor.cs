@@ -8,6 +8,7 @@ using Remotely.Server.Enums;
 using Remotely.Server.Hubs;
 using Remotely.Server.Models;
 using Remotely.Server.Services;
+using Remotely.Shared.Enums;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
 using Remotely.Shared.ViewModels;
@@ -24,6 +25,7 @@ namespace Remotely.Server.Components.Devices
     {
         private ElementReference _card;
         private ConcurrentDictionary<string, double> _fileUploadProgressLookup = new();
+        private Theme _theme;
 
         [Parameter]
         public Device Device { get; set; }
@@ -50,9 +52,12 @@ namespace Remotely.Server.Components.Devices
 
         private bool IsSelected => AppState.DevicesFrameSelectedDevices.Contains(Device.ID);
 
+        private bool IsOutdated =>
+            Version.TryParse(Device.AgentVersion, out var result) && 
+            result < ParentFrame.HighestVersion;
+
         [Inject]
         private IJsInterop JsInterop { get; set; }
-        private string Theme => AppState.EffectiveTheme.ToString().ToLower();
 
         [Inject]
         private IToastService ToastService { get; set; }
@@ -63,10 +68,11 @@ namespace Remotely.Server.Components.Devices
             GC.SuppressFinalize(this);
         }
 
-        protected override Task OnInitializedAsync()
+        protected override async Task OnInitializedAsync()
         {
+            await base.OnInitializedAsync();
+            _theme = await AppState.GetEffectiveTheme();
             AppState.PropertyChanged += AppState_PropertyChanged;
-            return base.OnInitializedAsync();
         }
 
         private void AppState_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -89,8 +95,8 @@ namespace Remotely.Server.Components.Devices
             return string.Empty;
         }
 
-        private void ExpandCard()
-        {
+        private async Task ExpandCard(MouseEventArgs args)
+        {  
             if (AppState.DevicesFrameFocusedDevice == Device.ID)
             {
                 if (AppState.DevicesFrameFocusedCardState == DeviceCardState.Normal)
@@ -103,6 +109,16 @@ namespace Remotely.Server.Components.Devices
             AppState.DevicesFrameFocusedDevice = Device.ID;
             AppState.DevicesFrameFocusedCardState = DeviceCardState.Expanded;
             JsInterop.ScrollToElement(_card);
+
+            await CircuitConnection.TriggerHeartbeat(Device.ID);
+        }
+
+        private void ContextMenuOpening(MouseEventArgs args)
+        {
+            if (GetCardState() == DeviceCardState.Normal)
+            {
+                JsInterop.OpenWindow($"/device-details/{Device.ID}", "_blank");
+            }
         }
 
         private DeviceCardState GetCardState()
@@ -158,7 +174,7 @@ namespace Remotely.Server.Components.Devices
             InvokeAsync(StateHasChanged);
         }
 
-        private Task HandleValidSubmit()
+        private async Task HandleValidSubmit()
         {
             DataService.UpdateDevice(Device.ID,
                   Device.Tags,
@@ -168,12 +184,13 @@ namespace Remotely.Server.Components.Devices
                   Device.WebRtcSetting);
 
             ToastService.ShowToast("Device settings saved.");
-            return Task.CompletedTask;
+
+            await CircuitConnection.TriggerHeartbeat(Device.ID);
         }
 
         private void OpenDeviceDetails()
         {
-            JsInterop.OpenWindow($"/DeviceDetails/{Device.ID}", "_blank");
+            JsInterop.OpenWindow($"/device-details/{Device.ID}", "_blank");
         }
 
         private void SetCardStateNormal()
@@ -245,6 +262,8 @@ namespace Remotely.Server.Components.Devices
             if (result)
             {
                 await CircuitConnection.UninstallAgents(new[] { Device.ID });
+                AppState.DevicesFrameFocusedDevice = null;
+                AppState.DevicesFrameFocusedCardState = DeviceCardState.Normal;
                 ParentFrame.Refresh();
             }
         }

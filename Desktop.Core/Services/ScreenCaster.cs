@@ -126,6 +126,7 @@ namespace Remotely.Desktop.Core.Services
                         if (viewer.IsStalled)
                         {
                             // Viewer isn't responding.  Abort sending.
+                            Logger.Write("Viewer stalled.  Ending send loop.");
                             break;
                         }
 
@@ -166,20 +167,18 @@ namespace Remotely.Desktop.Core.Services
                             refreshNeeded = false;
                         }
 
-                        using var clone = currentFrame.Clone(diffArea, currentFrame.PixelFormat);
-
                         byte[] encodedImageBytes;
                         if (viewer.Capturer.CaptureFullscreen)
                         {
                             // Recalculate Bps.
                             viewer.AverageBytesPerSecond = 0;
-                            encodedImageBytes = ImageUtils.EncodeJpeg(clone, _maxQuality);
+                            encodedImageBytes = ImageUtils.EncodeJpeg(currentFrame, _maxQuality);
                         }
                         else
                         {
                             if (viewer.AverageBytesPerSecond > 0)
                             {
-                                var expectedSize = clone.Height * clone.Width * 4 * .1;
+                                var expectedSize = diffArea.Height * diffArea.Width * 4 * .1;
                                 var timeToSend = expectedSize / viewer.AverageBytesPerSecond;
                                 currentQuality = Math.Max(_minQuality, Math.Min(_maxQuality, (int)(.1 / timeToSend * _maxQuality)));
                                 if (currentQuality < _maxQuality - 10)
@@ -188,6 +187,11 @@ namespace Remotely.Desktop.Core.Services
                                     Debug.WriteLine($"Quality Reduced: {currentQuality}");
                                 }
                             }
+
+                            using var clone = currentFrame.Clone(diffArea, currentFrame.PixelFormat);
+                            //var resizeW = diffArea.Width * currentQuality / _maxQuality;
+                            //var resizeH = diffArea.Height * currentQuality / _maxQuality;
+                            //using var resized = new Bitmap(clone, new Size(resizeW, resizeH));
                             encodedImageBytes = ImageUtils.EncodeJpeg(clone, currentQuality);
                         }
 
@@ -202,7 +206,13 @@ namespace Remotely.Desktop.Core.Services
                     }
                 }
 
-                Logger.Write($"Ended screen cast.  Requester: {viewer.Name}. Viewer ID: {viewer.ViewerConnectionID}.");
+                Logger.Write($"Ended screen cast.  " +
+                    $"Requester: {viewer.Name}. " +
+                    $"Viewer ID: {viewer.ViewerConnectionID}. " +
+                    $"Viewer WS Connected: {viewer.IsConnected}.  " +
+                    $"Viewer Stalled: {viewer.IsStalled}.  " +
+                    $"Viewer Disconnected Requested: {viewer.DisconnectRequested}");
+
                 _conductor.Viewers.TryRemove(viewer.ViewerConnectionID, out _);
                 viewer.Dispose();
             }

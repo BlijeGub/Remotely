@@ -28,6 +28,9 @@ fi
 echo "Using $AppRoot as the Remotely website's content directory."
 
 yum update
+yum -y install curl
+yum -y install software-properties-common
+yum -y install gnupg
 
 # Install .NET Core Runtime.
 sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
@@ -74,39 +77,39 @@ nginxConfig="server {
         proxy_set_header   X-Forwarded-Proto \$scheme;
     }
 
-	location /_blazor {
-		proxy_pass http://localhost:5000;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \"Upgrade\";
-		proxy_set_header Host \$host;
-		proxy_cache_bypass \$http_upgrade;
-	}
-	location /AgentHub {
-		proxy_pass http://localhost:5000;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \"Upgrade\";
-		proxy_set_header Host \$host;
-		proxy_cache_bypass \$http_upgrade;
-	}
+    location /_blazor {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \"Upgrade\";
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+    location /AgentHub {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \"Upgrade\";
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
 
-	location /ViewerHub {
-		proxy_pass http://localhost:5000;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \"Upgrade\";
-		proxy_set_header Host \$host;
-		proxy_cache_bypass \$http_upgrade;
-	}
-	location /CasterHub {
-		proxy_pass http://localhost:5000;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \"Upgrade\";
-		proxy_set_header Host \$host;
-		proxy_cache_bypass \$http_upgrade;
-	}
+    location /ViewerHub {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \"Upgrade\";
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+    location /CasterHub {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \"Upgrade\";
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
 }"
 
 echo "$nginxConfig" > /etc/nginx/conf.d/remotely.conf
@@ -125,7 +128,7 @@ Description=Remotely Server
 
 [Service]
 WorkingDirectory=$AppRoot
-ExecStart=$AppRoot/Remotely_Server
+ExecStart=/usr/bin/dotnet $AppRoot/Remotely_Server.dll
 Restart=always
 # Restart service after 10 seconds if the dotnet service crashes:
 RestartSec=10

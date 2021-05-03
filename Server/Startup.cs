@@ -263,16 +263,9 @@ namespace Remotely.Server
                 endpoints.MapFallbackToPage("/_Host");
             });
 
-            try
+            if (context.Database.IsRelational())
             {
-                if (context.Database.IsRelational())
-                {
-                    context.Database.Migrate();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                context.Database.Migrate();
             }
 
             loggerFactory.AddProvider(new DbLoggerProvider(env, app.ApplicationServices));
@@ -288,7 +281,8 @@ namespace Remotely.Server
             app.Use(async (context, next) =>
             {
                 if (context.Request.Path.HasValue &&
-                    context.Request.Path.Value.Contains("/Downloads/R", StringComparison.OrdinalIgnoreCase))
+                    context.Request.Path.Value.Contains("/Downloads/", StringComparison.OrdinalIgnoreCase) &&
+                    !context.Request.Path.Value.TrimEnd('/').EndsWith("downloads", StringComparison.OrdinalIgnoreCase))
                 {
                     var redirectUrl = context.Request.GetDisplayUrl().Replace("/Downloads/", "/Content/");
                     context.Response.Redirect(redirectUrl);
